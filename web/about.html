@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>关于我们 - 端木科技</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 1rem;
+            padding: 2rem;
+            height: 100%;
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            width: 4rem;
+            height: 4rem;
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(45deg, #4e73df 0%, #224abe 100%);
+            color: white;
+        }
+
+        .feature-card.excel .feature-icon {
+            background: linear-gradient(45deg, #1cc88a 0%, #13855c 100%);
+        }
+
+        .feature-card.chat .feature-icon {
+            background: linear-gradient(45deg, #36b9cc 0%, #258391 100%);
+        }
+
+        .feature-card.data .feature-icon {
+            background: linear-gradient(45deg, #f6c23e 0%, #dda20a 100%);
+        }
+
+        .section-features {
+            padding: 5rem 0;
+            background-color: #f8f9fc;
+        }
+
+        .company-intro {
+            padding: 5rem 0;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header sticky-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div>
+                <div id="notLoggedIn">
+                    <a href="/login" class="btn btn-outline-light me-2">登录</a>
+                    <a href="/contact" class="btn btn-light">联系我们</a>
+                </div>
+                <div id="loggedIn" style="display: none;">
+                    <span class="text-light me-3" id="userInfo"></span>
+                    <a href="/dashboard" class="btn btn-outline-light me-2">控制台</a>
+                    <button onclick="logout()" class="btn btn-light">登出</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- 主横幅 -->
+        <div class="hero">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <h1 class="display-4 fw-bold">全栈企业级云平台解决方案</h1>
+                        <p class="lead">
+                            从IaaS基础设施到SaaS应用，为企业提供一站式云计算及信息化服务解决方案。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 功能区域 -->
+        <section class="section-features">
+            <div class="container">
+                <h2 class="text-center mb-5">核心功能</h2>
+                <div class="row g-4">
+                    <!-- Excel处理系统 -->
+                    <div class="col-md-4">
+                        <div class="feature-card excel">
+                            <div class="feature-icon">
+                                <svg class="bi" width="1.5em" height="1.5em" fill="currentColor">
+                                    <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                                </svg>
+                            </div>
+                            <h3>Excel文件处理</h3>
+                            <p>自动化处理Excel文件，提高数据处理效率，减少人工操作错误。</p>
+                            <a href="/dashboard" class="btn btn-outline-primary">立即使用</a>
+                        </div>
+                    </div>
+
+                    <!-- 智能对话系统 -->
+                    <div class="col-md-4">
+                        <div class="feature-card chat">
+                            <div class="feature-icon">
+                                <svg class="bi" width="1.5em" height="1.5em" fill="currentColor">
+                                    <path d="M2.678 11.894a1 1 0 0 1 .287.801 10.97 10.97 0 0 1-.398 2c1.395-.323 2.247-.697 2.634-.893a1 1 0 0 1 .71-.074A8.06 8.06 0 0 0 8 14c3.996 0 7-2.807 7-6 0-3.192-3.004-6-7-6S1 4.808 1 8c0 1.468.617 2.83 1.678 3.894zm-.493 3.905a21.682 21.682 0 0 1-.713.129c-.2.032-.352-.176-.273-.362a9.68 9.68 0 0 0 .244-.637l.003-.01c.248-.72.45-1.548.524-2.319C.743 11.37 0 9.76 0 8c0-3.866 3.582-7 8-7s8 3.134 8 7-3.582 7-8 7a9.06 9.06 0 0 1-2.347-.306c-.52.263-1.639.742-3.468 1.105z"/>
+                                </svg>
+                            </div>
+                            <h3>智能对话系统</h3>
+                            <p>基于AI的智能对话系统，为企业提供24/7的自动化客服支持。</p>
+                            <a href="#" class="btn btn-outline-primary">即将推出</a>
+                        </div>
+                    </div>
+
+                    <!-- 数据分析平台 -->
+                    <div class="col-md-4">
+                        <div class="feature-card data">
+                            <div class="feature-icon">
+                                <svg class="bi" width="1.5em" height="1.5em" fill="currentColor">
+                                    <path d="M0 0h1v15h15v1H0V0Zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07Z"/>
+                                </svg>
+                            </div>
+                            <h3>数据分析平台</h3>
+                            <p>专业的数据分析工具，帮助企业洞察业务数据，做出明智决策。</p>
+                            <a href="#" class="btn btn-outline-primary">即将推出</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 公司介绍 -->
+        <section class="company-intro">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-6">
+                        <h2>关于端木科技</h2>
+                        <p class="lead">
+                            江苏端木软件技术有限公司成立于2014年，是一家专业的云计算及行业信息化服务提供商。
+                        </p>
+                        <p>
+                            立足南京，服务能力辐射全国，面向运营商、互联网、新零售、金融、教育、智能制造、电力等行业客户提供从IaaS基础设施层、PaaS平台层、DaaS数据层到SaaS软件层的全栈企业级云平台和信息化服务。
+                        </p>
+                    </div>
+                    <div class="col-lg-6">
+                        <img src="/web/images/123.jpg" alt="端木科技公司简介" class="img-fluid rounded">
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="container py-5">
+        <div class="row">
+            <div class="col-12 col-md">
+                <small class="d-block mb-3 text-body-secondary">&copy; 2024 江苏端木软件技术有限公司</small>
+            </div>
+            <div class="col-6 col-md">
+                <h5>功能</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="link-secondary text-decoration-none" href="/dashboard">Excel处理</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="#">智能对话</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="#">数据分析</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md">
+                <h5>关于</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="link-secondary text-decoration-none" href="#">公司介绍</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="#">联系我们</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/check-status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('notLoggedIn').style.display = 'none';
+                    document.getElementById('loggedIn').style.display = 'block';
+                    document.getElementById('userInfo').textContent = `${data.user}`;
+                } else {
+                    document.getElementById('notLoggedIn').style.display = 'block';
+                    document.getElementById('loggedIn').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('登出失败:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+    </script>
+</body>
+</html> 

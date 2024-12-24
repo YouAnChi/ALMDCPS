@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>端木科技</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .cover-container {
+            height: 100vh;
+            background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('/web/images/1234.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            color: white;
+            display: flex;
+            align-items: center;
+        }
+
+        .cover-heading {
+            font-size: 4rem;
+            font-weight: 700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .cover-lead {
+            font-size: 1.5rem;
+            font-weight: 300;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .btn-cover {
+            padding: .75rem 1.25rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-width: 2px;
+        }
+    </style>
+</head>
+<body class="d-flex h-100 text-center">
+    <header class="site-header fixed-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div>
+                <div id="notLoggedIn">
+                    <a href="/login" class="btn btn-outline-light me-2">登录</a>
+                    <a href="/contact" class="btn btn-light">联系我们</a>
+                </div>
+                <div id="loggedIn" style="display: none;">
+                    <span class="text-light me-3" id="userInfo"></span>
+                    <a href="/dashboard" class="btn btn-outline-light me-2">控制台</a>
+                    <button onclick="logout()" class="btn btn-light">登出</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="cover-container w-100">
+        <main class="px-3 container">
+            <h1 class="cover-heading mb-4">端木科技</h1>
+            <p class="cover-lead mb-5">
+                专业的云计算及行业信息化服务提供商<br>
+                为企业提供全栈云平台解决方案
+            </p>
+            <p class="lead">
+                <a href="/about" class="btn btn-lg btn-light btn-cover me-3">了解更多</a>
+                <a href="#" id="startUsingBtn" class="btn btn-lg btn-outline-light btn-cover">立即使用</a>
+            </p>
+        </main>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // 保持原有的登录状态检查代码
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/check-status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('notLoggedIn').style.display = 'none';
+                    document.getElementById('loggedIn').style.display = 'block';
+                    document.getElementById('userInfo').textContent = `${data.user}`;
+                    document.getElementById('startUsingBtn').href = '/about';
+                } else {
+                    document.getElementById('notLoggedIn').style.display = 'block';
+                    document.getElementById('loggedIn').style.display = 'none';
+                    document.getElementById('startUsingBtn').href = '/login';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                document.getElementById('startUsingBtn').href = '/login';
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                });
+                if (response.ok) {
+                    window.location.reload();
+                }
+            } catch (error) {
+                console.error('登出失败:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+    </script>
+</body>
+</html> 

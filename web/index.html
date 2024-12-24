@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Excel 文件处理系统</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .container {
+            max-width: 960px;
+        }
+
+        .icon-link > .bi {
+            width: 1.25em;
+            height: 1.25em;
+        }
+
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .product-device {
+            position: absolute;
+            right: 10%;
+            bottom: -30%;
+            width: 300px;
+            height: 540px;
+            background-color: #333;
+            border-radius: 21px;
+            transform: rotate(30deg);
+        }
+
+        .product-device::before {
+            position: absolute;
+            top: 10%;
+            right: 10px;
+            bottom: 10%;
+            left: 10px;
+            content: "";
+            background-color: rgba(255, 255, 255, .1);
+            border-radius: 5px;
+        }
+
+        .bi {
+            vertical-align: -.125em;
+            fill: currentColor;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header sticky-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div class="d-flex align-items-center">
+                <a href="/" class="btn btn-outline-light me-2">返回首页</a>
+                <span class="text-light me-3" id="userInfo"></span>
+                <button onclick="logout()" class="btn btn-light">登出</button>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="position-relative overflow-hidden p-3 p-md-5 m-md-3 text-center bg-body-tertiary">
+            <div class="col-md-8 p-lg-5 mx-auto my-5">
+                <h1 class="display-4 fw-normal">Excel 文件处理系统</h1>
+                <p class="lead fw-normal">上传您的 Excel 文件，系统将自动处理并生成结果</p>
+                
+                <div class="mb-4">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <textarea id="promptInput" class="form-control" placeholder="请输入 prompt" required></textarea>
+                        </div>
+                        <button type="button" id="confirmButton" class="btn btn-primary mb-3" disabled>确定</button>
+                        <div class="mb-3">
+                            <input type="file" name="file" class="form-control" accept=".xlsx" required disabled>
+                        </div>
+                        <button type="submit" class="btn btn-success" disabled>上传文件</button>
+                    </form>
+                </div>
+
+                <div id="progressContainer" style="display:none;">
+                    <div class="progress mb-3">
+                        <div id="progressBar" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <p id="progressMessage">处理进度: <span id="progressCount">0</span> 行 (<span id="progressPercent">0</span>%)</p>
+                </div>
+
+                <p id="responseMessage" class="lead"></p>
+                <a id="downloadLink" href="#" class="btn btn-outline-secondary" style="display:none;">下载处理结果</a>
+            </div>
+        </div>
+    </main>
+
+    <footer class="container py-5">
+        <div class="row">
+            <div class="col-12 col-md">
+                <small class="d-block mb-3 text-body-secondary">&copy; 2024</small>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        const promptInput = document.getElementById('promptInput');
+        const fileInput = document.querySelector('input[type="file"]');
+        const submitButton = document.querySelector('button[type="submit"]');
+        const downloadLink = document.getElementById('downloadLink');
+        const progressMessage = document.getElementById('progressMessage');
+        const progressCount = document.getElementById('progressCount');
+        const progressPercent = document.getElementById('progressPercent');
+        const confirmButton = document.getElementById('confirmButton');
+
+        promptInput.addEventListener('input', function() {
+            const isPromptValid = promptInput.value.trim() !== '';
+            confirmButton.disabled = !isPromptValid;
+        });
+
+        confirmButton.addEventListener('click', function() {
+            fileInput.disabled = false;
+            submitButton.disabled = false;
+            confirmButton.disabled = true;
+        });
+
+        // 添加进度条更新
+        const updateProgress = (processed, total) => {
+            const percent = ((processed / total) * 100).toFixed(2);
+            document.getElementById('progressBar').style.width = percent + '%';
+            document.getElementById('progressCount').textContent = processed;
+            document.getElementById('progressPercent').textContent = percent;
+        };
+
+        // 修改表单提交处理
+        document.getElementById('uploadForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const formData = new FormData(this);
+            formData.append('prompt', promptInput.value);
+
+            // 显示进度容器
+            document.getElementById('progressContainer').style.display = 'block';
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('responseMessage').textContent = data.message;
+                downloadLink.href = `/uploads/${data.file}`;
+                downloadLink.style.display = 'block';
+                document.getElementById('progressContainer').style.display = 'none';
+            })
+            .catch(error => {
+                document.getElementById('responseMessage').textContent = '上传失败: ' + error;
+            });
+
+            // 开始轮询进度
+            const intervalId = setInterval(() => {
+                fetch('/progress')
+                    .then(response => response.json())
+                    .then(data => {
+                        updateProgress(data.processedRows, data.totalRows);
+                        if (data.completed) {
+                            clearInterval(intervalId);
+                        }
+                    });
+            }, 1000);
+        });
+
+        // 检查登录状态
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/check-status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    // 更新用户信息显示
+                    document.getElementById('userInfo').textContent = `当前用户: ${data.user}`;
+                } else {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+                window.location.href = '/login';
+            }
+        }
+
+        // 登出函数
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST',
+                });
+                if (response.ok) {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('登出失败:', error);
+            }
+        }
+
+        // 页面加载时检查登录状态
+        checkLoginStatus();
+    </script>
+</body>
+</html>

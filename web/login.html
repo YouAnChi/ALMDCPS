@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录 - Excel 文件处理系统</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .login-container {
+            background-color: rgba(255, 255, 255, 0.95);
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(10px);
+        }
+
+        .form-floating {
+            margin-bottom: 1rem;
+        }
+
+        .btn-login {
+            padding: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .error-message {
+            color: #dc3545;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .brand-logo {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 1rem;
+        }
+
+        .login-title {
+            color: #212529;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        .back-home {
+            color: white;
+            text-decoration: none;
+            margin-top: 1rem;
+            display: inline-block;
+        }
+
+        .back-home:hover {
+            color: rgba(255, 255, 255, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header sticky-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div>
+                <a href="/" class="btn btn-outline-light me-2">返回首页</a>
+                <a href="/contact" class="btn btn-light">联系我们</a>
+            </div>
+        </nav>
+    </header>
+
+    <div class="hero">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-md-6 col-lg-5">
+                    <div class="text-center mb-4">
+                        <svg class="brand-logo" fill="white" viewBox="0 0 16 16">
+                            <path d="M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zM4.5 7.5a.5.5 0 0 1 0 1H4a.5.5 0 0 1 0-1h.5zm9 0a.5.5 0 0 1 0 1h-.5a.5.5 0 0 1 0-1h.5zm-9 2a.5.5 0 0 1 0 1H4a.5.5 0 0 1 0-1h.5zm9 0a.5.5 0 0 1 0 1h-.5a.5.5 0 0 1 0-1h.5zm-9 2a.5.5 0 0 1 0 1H4a.5.5 0 0 1 0-1h.5zm9 0a.5.5 0 0 1 0 1h-.5a.5.5 0 0 1 0-1h.5z"/>
+                        </svg>
+                        <h2 class="text-white">欢迎使用</h2>
+                    </div>
+                    <div class="login-container">
+                        <h3 class="login-title text-center">用户登录</h3>
+                        <form id="loginForm">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="username" name="username" placeholder="用户名" required>
+                                <label for="username">用户名</label>
+                            </div>
+                            <div class="form-floating">
+                                <input type="password" class="form-control" id="password" name="password" placeholder="密码" required>
+                                <label for="password">密码</label>
+                            </div>
+                            <button type="submit" class="btn btn-primary w-100 btn-login">登录</button>
+                            <div id="errorMessage" class="error-message text-center"></div>
+                        </form>
+                    </div>
+                    <div class="text-center mt-3">
+                        <a href="/" class="back-home">返回首页</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const errorMessage = document.getElementById('errorMessage');
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    console.log('登录成功');
+                    window.location.href = data.redirect || '/about';
+                } else {
+                    console.error('登录失败:', data.message);
+                    errorMessage.textContent = data.message || '登录失败';
+                    errorMessage.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('登录请求失败:', error);
+                errorMessage.textContent = '登录请求失败: ' + error.message;
+                errorMessage.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html> 
