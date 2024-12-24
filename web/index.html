@@ -73,6 +73,10 @@
                 <p class="lead fw-normal">上传您的 Excel 文件，系统将自动处理并生成结果</p>
                 
                 <div class="mb-4">
+                    <a href="/web/shuoming/功能说明.docx" class="btn btn-info" download>点击这里获取功能说明</a>
+                </div>
+                
+                <div class="mb-4">
                     <form id="uploadForm" enctype="multipart/form-data">
                         <div class="mb-3">
                             <textarea id="promptInput" class="form-control" placeholder="请输入 prompt" required></textarea>
@@ -193,7 +197,7 @@
             }
         }
 
-        // 登出函数
+        // 登出���数
         async function logout() {
             try {
                 const response = await fetch('/api/logout', {
