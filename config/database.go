@@ -12,7 +12,7 @@ var DB *sql.DB
 func InitDB() {
 	var err error
 	// 更新数据库连接信息，密码为 123456
-	DB, err = sql.Open("mysql", "root:123456@tcp(localhost:3306)/duanmu_db?charset=utf8mb4&parseTime=True&loc=Local")
+	DB, err = sql.Open("mysql", "root:12345678@tcp(localhost:3306)/duanmu_db?charset=utf8mb4&parseTime=True&loc=Local")
 	if err != nil {
 		log.Fatal("数据库连接失败：", err)
 	}
