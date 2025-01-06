@@ -60,6 +60,8 @@ func main() {
 
 	// 设置静态文件目录
 	r.Static("/web", "./web")
+	// 添加 chengshi 目录的静态文件服务
+	r.Static("/chengshi", "./chengshi")
 
 	// 设置首页路由
 	r.GET("/", func(c *gin.Context) {
@@ -175,6 +177,11 @@ func main() {
 	// 设置关于页面路由
 	r.GET("/about", func(c *gin.Context) {
 		c.File("./web/about.html")
+	})
+
+	// 设置数据分析页面路由
+	r.GET("/data_analysis", func(c *gin.Context) {
+		c.File("./web/data_analysis.html")
 	})
 
 	// 启动服务器，监听所有IP地址

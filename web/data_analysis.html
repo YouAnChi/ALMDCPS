@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>数据分析平台 - 端木科技</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 1rem;
+            padding: 2rem;
+            height: 100%;
+            transition: transform 0.3s ease;
+            border: none;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .tool-section {
+            padding: 5rem 0;
+            background-color: #f8f9fc;
+        }
+
+        .tool-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            transition: all 0.3s ease;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header sticky-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div>
+                <div id="notLoggedIn">
+                    <a href="/login" class="btn btn-outline-light me-2">登录</a>
+                    <a href="/contact" class="btn btn-light">联系我们</a>
+                </div>
+                <div id="loggedIn" style="display: none;">
+                    <span class="text-light me-3" id="userInfo"></span>
+                    <a href="/dashboard" class="btn btn-outline-light me-2">控制台</a>
+                    <button onclick="logout()" class="btn btn-light">登出</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="hero">
+            <div class="container">
+                <div class="row align-items-center">
+                    <div class="col-lg-8 mx-auto text-center">
+                        <h1 class="display-4 fw-bold text-white">数据分析平台</h1>
+                        <p class="lead text-white-50">
+                            专业的数据分析工具，帮助企业洞察业务数据，做出明智决策
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tool-section">
+            <div class="container">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="tool-card">
+                            <h2>文件重命名工具</h2>
+                            <p>批量处理文件名，提高工作效率</p>
+                            <ul class="list-unstyled mt-3 mb-4">
+                                <li>支持 Windows 系统</li>
+                                <li>版本：1.0.0</li>
+                                <li>大小：2.5MB</li>
+                            </ul>
+                            <div class="d-grid gap-2">
+                                <a href="/chengshi/rename_files/rename_files.exe" download="rename_files.exe" class="btn btn-primary">
+                                    下载工具
+                                </a>
+                                <a href="/chengshi/rename_files/README.md" download="README.md" class="btn btn-outline-secondary btn-sm">
+                                    下载说明文档
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="tool-card">
+                            <h2>数据分析服务</h2>
+                            <p>专业的数据分析和可视化服务</p>
+                            <ul class="list-unstyled mt-3 mb-4">
+                                <li>支持多种数据格式</li>
+                                <li>实时数据处理</li>
+                                <li>可视化报表</li>
+                            </ul>
+                            <button class="btn btn-secondary" disabled>
+                                即将推出
+                            </button>
+                            <small class="d-block mt-2 text-muted">功能开发中，敬请期待...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    <script>
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/check-status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('notLoggedIn').style.display = 'none';
+                    document.getElementById('loggedIn').style.display = 'block';
+                    document.getElementById('userInfo').textContent = `${data.user}`;
+                } else {
+                    document.getElementById('notLoggedIn').style.display = 'block';
+                    document.getElementById('loggedIn').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('检查登录状态时出错:', error);
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/';
+                } else {
+                    console.error('登出失败');
+                }
+            } catch (error) {
+                console.error('登出时出错:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+    </script>
+</body>
+</html>
