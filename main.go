@@ -10,6 +10,7 @@ import (
 
 	"fuzhu_2/api"
 	"fuzhu_2/config"
+	"fuzhu_2/gongju"
 	"fuzhu_2/models"
 	"fuzhu_2/types"
 	"fuzhu_2/utils"
@@ -177,6 +178,21 @@ func main() {
 	// 设置关于页面路由
 	r.GET("/about", func(c *gin.Context) {
 		c.File("./web/about.html")
+	})
+
+	// 设置模型分值计算页面路由
+	r.GET("/model-score", func(c *gin.Context) {
+		c.File("./web/model_score.html")
+	})
+
+	// 添加模型分值计算API
+	r.POST("/api/model/score", func(c *gin.Context) {
+		gongju.CalculateModelScore(c.Writer, c.Request)
+	})
+
+	// 添加Excel文件处理API
+	r.POST("/api/process-excel", func(c *gin.Context) {
+		gongju.ProcessExcelFile(c.Writer, c.Request)
 	})
 
 	// 设置数据分析页面路由
