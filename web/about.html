@@ -29,10 +29,12 @@
             transition: transform 0.3s ease;
             border: none;
             box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            display: flex;
+            flex-direction: column;
         }
 
-        .feature-card:hover {
-            transform: translateY(-5px);
+        .feature-card p {
+            flex-grow: 1;
         }
 
         .feature-icon {
@@ -132,7 +134,7 @@
                             </div>
                             <h3>智能大模型分值计算</h3>
                             <p>关于大模型的多个指标，提供分值计算服务。</p>
-                            <a href="/model-score" class="btn btn-primary">立即使用</a>
+                            <a href="/model-score" class="btn btn-outline-primary">立即使用</a>
                         </div>
                     </div>
 
