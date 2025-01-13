@@ -124,16 +124,15 @@
                         </div>
                     </div>
 
-                    <!-- 智能对话系统 -->
+                    <!-- 智能大模型分值计算 -->
                     <div class="col-md-4">
                         <div class="feature-card chat">
                             <div class="feature-icon">
                                 <i class="fas fa-comments"></i>
                             </div>
-                            <h3>智能对话系统</h3>
-                            <p>基于AI的智能对话系统，为企业提供24/7的自动化客服支持。</p>
-                            <button class="btn btn-secondary" disabled>即将推出</button>
-                            <small class="d-block mt-2 text-muted">功能开发中，敬请期待...</small>
+                            <h3>智能大模型分值计算</h3>
+                            <p>关于大模型的多个指标，提供分值计算服务。</p>
+                            <a href="/model-score" class="btn btn-primary">立即使用</a>
                         </div>
                     </div>
 
@@ -229,6 +228,28 @@
                 }
             } catch (error) {
                 console.error('登出失败:', error);
+            }
+        }
+
+        async function calculateModelScore() {
+            try {
+                const response = await fetch('/api/model/score', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('计算失败');
+                }
+
+                const data = await response.json();
+                document.getElementById('modelScore').textContent = data.score;
+                document.getElementById('modelAnalysis').textContent = data.analysis;
+                document.getElementById('scoreResult').style.display = 'block';
+            } catch (error) {
+                alert('计算失败：' + error.message);
             }
         }
 

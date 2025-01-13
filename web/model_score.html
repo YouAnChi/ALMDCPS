@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-bs-theme="auto">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>智能大模型分值计算 - 端木科技</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="/web/css/bootstrap.min.css" rel="stylesheet">
+    
+    <style>
+        .site-header {
+            background-color: rgba(0, 0, 0, .85);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+        }
+
+        .hero-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 4rem 0;
+        }
+
+        .score-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            margin-top: -3rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .score-result {
+            background: #f8f9fa;
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .score-chart {
+            width: 200px;
+            height: 200px;
+            margin: 0 auto;
+        }
+
+        .parameter-input {
+            margin-bottom: 1rem;
+        }
+
+        .score-detail {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-left: 4px solid #4e73df;
+            background-color: #f8f9fc;
+        }
+    </style>
+</head>
+<body>
+    <header class="site-header sticky-top py-1">
+        <nav class="container d-flex flex-column flex-md-row justify-content-between">
+            <a class="py-2 text-light text-decoration-none" href="/">
+                端木科技
+            </a>
+            <div>
+                <div id="notLoggedIn">
+                    <a href="/login" class="btn btn-outline-light me-2">登录</a>
+                    <a href="/contact" class="btn btn-light">联系我们</a>
+                </div>
+                <div id="loggedIn" style="display: none;">
+                    <span class="text-light me-3" id="userInfo"></span>
+                    <a href="/dashboard" class="btn btn-outline-light me-2">控制台</a>
+                    <button onclick="logout()" class="btn btn-light">登出</button>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <!-- 顶部横幅 -->
+        <section class="hero-section text-center">
+            <div class="container">
+                <h1 class="display-4">智能大模型分值计算</h1>
+                <p class="lead">基于多维度指标的智能评估系统</p>
+            </div>
+        </section>
+
+        <!-- 主要内容区 -->
+        <div class="container mt-5">
+            <div class="card">
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-4">智能大模型分值计算</h3>
+                    
+                    <!-- 文件上传表单 -->
+                    <form id="uploadForm" class="mb-4">
+                        <div class="mb-3">
+                            <label for="excelFile" class="form-label">请选择Excel文件</label>
+                            <input type="file" class="form-control" id="excelFile" accept=".xlsx,.xls" required>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-primary" onclick="calculateF1()">计算F1分数</button>
+                        </div>
+                    </form>
+
+                    <!-- 进度提示 -->
+                    <div id="progressAlert" class="alert alert-info d-none" role="alert">
+                        正在计算中，请稍候...
+                    </div>
+
+                    <!-- 错误提示 -->
+                    <div id="errorAlert" class="alert alert-danger d-none" role="alert">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer class="container py-5">
+        <div class="row">
+            <div class="col-12 col-md">
+                <small class="d-block mb-3 text-body-secondary">&copy; 2024 江苏端木软件技术有限公司</small>
+            </div>
+            <div class="col-6 col-md">
+                <h5>功能</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="link-secondary text-decoration-none" href="/dashboard">Excel处理</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="/model-score">智能评分</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="/data-analysis">数据分析</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-md">
+                <h5>关于</h5>
+                <ul class="list-unstyled text-small">
+                    <li><a class="link-secondary text-decoration-none" href="/about">公司介绍</a></li>
+                    <li><a class="link-secondary text-decoration-none" href="/contact">联系我们</a></li>
+                </ul>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="/web/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        async function checkLoginStatus() {
+            try {
+                const response = await fetch('/api/check-status');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    document.getElementById('notLoggedIn').style.display = 'none';
+                    document.getElementById('loggedIn').style.display = 'block';
+                    document.getElementById('userInfo').textContent = data.user;
+                } else {
+                    document.getElementById('notLoggedIn').style.display = 'block';
+                    document.getElementById('loggedIn').style.display = 'none';
+                }
+            } catch (error) {
+                console.error('检查登录状态失败:', error);
+            }
+        }
+
+        async function logout() {
+            try {
+                const response = await fetch('/api/logout', {
+                    method: 'POST'
+                });
+                
+                if (response.ok) {
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                console.error('登出失败:', error);
+            }
+        }
+
+        async function calculateF1() {
+            const fileInput = document.getElementById('excelFile');
+            const progressAlert = document.getElementById('progressAlert');
+            const errorAlert = document.getElementById('errorAlert');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                errorAlert.textContent = '请选择一个Excel文件';
+                errorAlert.classList.remove('d-none');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            // 显示进度提示
+            progressAlert.classList.remove('d-none');
+            errorAlert.classList.add('d-none');
+
+            try {
+                const response = await fetch('/api/process-excel', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('计算过程出错');
+                }
+
+                const result = await response.json();
+                
+                if (result.status === 'success' && result.resultFile) {
+                    // 创建一个隐藏的下载链接并触发点击
+                    const downloadLink = document.createElement('a');
+                    downloadLink.href = result.resultFile;
+                    downloadLink.download = '计算结果.xlsx';
+                    document.body.appendChild(downloadLink);
+                    downloadLink.click();
+                    document.body.removeChild(downloadLink);
+                    
+                    progressAlert.classList.add('d-none');
+                } else {
+                    throw new Error(result.message || '处理失败');
+                }
+            } catch (error) {
+                errorAlert.textContent = error.message;
+                errorAlert.classList.remove('d-none');
+            } finally {
+                progressAlert.classList.add('d-none');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', checkLoginStatus);
+    </script>
+</body>
+</html>
