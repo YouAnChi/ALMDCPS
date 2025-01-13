@@ -81,31 +81,359 @@ ALMDCPS/
 └── main.go       # 主程序入口
 ```
 
-## 系统流程
+## 系统架构图
 
+```mermaid
+graph TD
+    A[用户浏览器] --> B[Web服务器]
+    B --> C{认证检查}
+    C -->|通过| D[API网关]
+    C -->|未通过| E[返回401错误]
+    D --> F[用户服务]
+    D --> G[文件服务]
+    D --> H[数据服务]
+    F --> I[MySQL数据库]
+    G --> J[文件存储]
+    H --> K[Redis缓存]
+    H --> L[数据分析引擎]
 ```
-+-------------------+     +-------------------+     +-------------------+
-|    用户访问首页    | --> |    用户身份验证    | --> |    功能模块选择    |
-+-------------------+     +-------------------+     +-------------------+
-                                                           |
-                                                           v
-+-------------------+     +-------------------+     +-------------------+
-|    返回处理结果    | <-- |    数据处理流程    | <-- |    文件上传处理    |
-+-------------------+     +-------------------+     +-------------------+
+
+## 详细系统流程
+
+### 1. 用户认证流程
+
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Web as Web服务器
+    participant Auth as 认证服务
+    participant DB as 数据库
+
+    User->>Web: 访问系统
+    Web->>Auth: 检查会话
+    Auth->>DB: 查询用户信息
+    DB-->>Auth: 返回用户数据
+    Auth-->>Web: 认证结果
+    Web-->>User: 返回响应
 ```
 
-## 部署要求
+### 2. 文件处理流程
 
-### 系统要求
-- Go 1.16+
-- MySQL 5.7+
-- 现代浏览器（Chrome、Firefox、Safari、Edge）
+```mermaid
+sequenceDiagram
+    participant User as 用户
+    participant Web as Web服务器
+    participant API as API网关
+    participant File as 文件服务
+    participant DB as 数据库
+    participant Storage as 文件存储
 
-### 环境配置
-1. 安装 Go 环境
-2. 配置 MySQL 数据库
-3. 设置环境变量
-4. 安装依赖包
+    User->>Web: 上传文件
+    Web->>API: 转发请求
+    API->>File: 处理文件
+    File->>Storage: 保存文件
+    File->>DB: 记录文件信息
+    DB-->>File: 返回记录ID
+    File-->>API: 返回处理结果
+    API-->>Web: 返回响应
+    Web-->>User: 显示结果
+```
+
+### 3. 数据分析流程
+
+```mermaid
+flowchart TD
+    A[上传文件] --> B[文件解析]
+    B --> C{文件类型}
+    C -->|Excel| D[Excel解析器]
+    C -->|CSV| E[CSV解析器]
+    D --> F[数据清洗]
+    E --> F
+    F --> G[数据转换]
+    G --> H[数据分析]
+    H --> I[生成报告]
+    I --> J[保存结果]
+    J --> K[返回给用户]
+```
+
+## 数据库设计
+
+### 用户表 (users)
+| 字段名       | 类型         | 说明               |
+|--------------|--------------|--------------------|
+| id           | BIGINT       | 主键，自增         |
+| username     | VARCHAR(50)  | 用户名，唯一       |
+| password     | VARCHAR(255) | 加密后的密码       |
+| email        | VARCHAR(100) | 邮箱，唯一         |
+| created_at   | DATETIME     | 创建时间           |
+| updated_at   | DATETIME     | 最后更新时间       |
+| status       | TINYINT      | 用户状态（0/1）    |
+
+### 文件表 (files)
+| 字段名       | 类型         | 说明               |
+|--------------|--------------|--------------------|
+| id           | BIGINT       | 主键，自增         |
+| user_id      | BIGINT       | 用户ID             |
+| file_name    | VARCHAR(255) | 文件名             |
+| file_path    | VARCHAR(255) | 文件存储路径       |
+| file_size    | BIGINT       | 文件大小（字节）   |
+| status       | TINYINT      | 文件状态（0/1/2）  |
+| created_at   | DATETIME     | 创建时间           |
+| updated_at   | DATETIME     | 最后更新时间       |
+
+### 操作日志表 (operation_logs)
+| 字段名       | 类型         | 说明               |
+|--------------|--------------|--------------------|
+| id           | BIGINT       | 主键，自增         |
+| user_id      | BIGINT       | 用户ID             |
+| operation    | VARCHAR(50)  | 操作类型           |
+| detail       | TEXT         | 操作详情           |
+| created_at   | DATETIME     | 创建时间           |
+
+## API 接口文档
+
+### 1. 用户认证接口
+
+#### 登录接口
+- **URL**: /api/v1/login
+- **Method**: POST
+- **Request**:
+  ```json
+  {
+    "username": "testuser",
+    "password": "test123"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "code": 200,
+    "data": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "user_info": {
+        "id": 1,
+        "username": "testuser"
+      }
+    }
+  }
+  ```
+
+#### 注册接口
+- **URL**: /api/v1/register
+- **Method**: POST
+- **Request**:
+  ```json
+  {
+    "username": "newuser",
+    "password": "newpass123",
+    "email": "newuser@example.com"
+  }
+  ```
+- **Response**:
+  ```json
+  {
+    "code": 200,
+    "data": {
+      "id": 2,
+      "username": "newuser"
+    }
+  }
+  ```
+
+### 2. 文件处理接口
+
+#### 文件上传接口
+- **URL**: /api/v1/upload
+- **Method**: POST
+- **Request**:
+  - Content-Type: multipart/form-data
+  - Form Data:
+    - file: 要上传的文件
+- **Response**:
+  ```json
+  {
+    "code": 200,
+    "data": {
+      "file_id": 123,
+      "file_name": "example.xlsx",
+      "status": "uploaded"
+    }
+  }
+  ```
+
+#### 文件处理状态查询
+- **URL**: /api/v1/files/{file_id}/status
+- **Method**: GET
+- **Response**:
+  ```json
+  {
+    "code": 200,
+    "data": {
+      "file_id": 123,
+      "status": "processing",
+      "progress": 75
+    }
+  }
+  ```
+
+## 详细环境配置指南
+
+### 1. Go 环境配置
+```bash
+# 安装 Go
+brew install go
+
+# 设置环境变量
+echo 'export GOPATH=$HOME/go' >> ~/.zshrc
+echo 'export PATH=$PATH:$GOPATH/bin' >> ~/.zshrc
+source ~/.zshrc
+
+# 验证安装
+go version
+```
+
+### 2. MySQL 配置
+```bash
+# 安装 MySQL
+brew install mysql
+
+# 启动 MySQL 服务
+brew services start mysql
+
+# 创建数据库
+mysql -u root -p
+CREATE DATABASE almdps CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+GRANT ALL PRIVILEGES ON almdps.* TO 'almdps_user'@'localhost' IDENTIFIED BY 'your_password';
+FLUSH PRIVILEGES;
+```
+
+### 3. Redis 配置（可选）
+```bash
+# 安装 Redis
+brew install redis
+
+# 启动 Redis 服务
+brew services start redis
+```
+
+### 4. 项目配置
+```bash
+# 克隆项目
+git clone https://github.com/your-repo/ALMDCPS.git
+cd ALMDCPS
+
+# 安装依赖
+go mod download
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件配置数据库连接等信息
+```
+
+## 开发规范
+
+### 1. 代码风格
+- 遵循 Go 官方代码风格指南
+- 使用 gofmt 格式化代码
+- 变量命名采用 camelCase
+- 常量命名采用 UPPER_CASE
+- 接口命名以 'er' 结尾
+
+### 2. 提交规范
+- 提交信息格式：[类型] 简短描述
+  - 类型包括：feat, fix, docs, style, refactor, test, chore
+  - 示例：[feat] 添加用户登录功能
+- 提交前必须通过所有测试
+- 提交前必须格式化代码
+
+### 3. 测试规范
+- 单元测试覆盖率不低于 80%
+- 每个功能模块必须有对应的测试用例
+- 使用 table-driven tests 编写测试
+- 测试数据使用 test fixtures
+
+### 4. 文档规范
+- 每个包必须有 package 注释
+- 每个导出函数必须有函数注释
+- 复杂逻辑必须有代码注释
+- 使用 godoc 生成文档
+
+## 错误处理机制
+
+### 1. 错误分类
+- 系统错误（500）：服务器内部错误
+- 客户端错误（400）：请求参数错误
+- 认证错误（401）：未授权访问
+- 权限错误（403）：禁止访问
+- 资源错误（404）：资源不存在
+
+### 2. 错误返回格式
+```json
+{
+  "code": 400,
+  "message": "Invalid request parameters",
+  "details": {
+    "username": "username is required"
+  }
+}
+```
+
+### 3. 日志记录
+- 使用 zap 日志库
+- 日志级别：debug, info, warn, error, fatal
+- 日志格式：JSON
+- 日志文件按天分割
+- 敏感信息脱敏处理
+
+## 性能优化建议
+
+### 1. 数据库优化
+- 添加必要的索引
+- 使用连接池
+- 避免 N+1 查询
+- 使用 EXPLAIN 分析慢查询
+
+### 2. 缓存优化
+- 使用 Redis 缓存热点数据
+- 设置合理的缓存过期时间
+- 使用缓存穿透保护机制
+
+### 3. 并发处理
+- 使用 goroutine 处理耗时操作
+- 使用 sync.Pool 重用对象
+- 使用 context 控制超时
+
+### 4. 前端优化
+- 使用 CDN 加速静态资源
+- 启用 Gzip 压缩
+- 使用 HTTP/2
+- 优化图片资源
+
+## 安全策略
+
+### 1. 认证安全
+- 使用 JWT 认证
+- 密码使用 bcrypt 加密
+- 设置合理的会话过期时间
+- 实现防暴力破解机制
+
+### 2. 数据安全
+- 敏感数据加密存储
+- 使用 HTTPS 传输数据
+- 实现 CSRF 防护
+- 使用 CSP 安全策略
+
+### 3. 输入验证
+- 所有输入参数必须验证
+- 使用正则表达式验证格式
+- 防止 SQL 注入
+- 防止 XSS 攻击
+
+### 4. 日志安全
+- 不记录敏感信息
+- 日志文件权限控制
+- 日志文件定期归档
+- 实现日志审计功能
 
 ## 快速开始
 
