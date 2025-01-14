@@ -54,6 +54,10 @@ ALMDCPS 是一个基于 Go 语言和 Gin 框架开发的企业级数据处理系
   - 实时进度显示
   - 状态查询
   - 错误提示
+- **文件自动清理**
+  - 定时清理过期文件（24小时后）
+  - 每小时自动检查
+  - 清理日志记录
 
 ### 3. 数据分析平台
 - **文件重命名工具**
@@ -65,6 +69,21 @@ ALMDCPS 是一个基于 Go 语言和 Gin 框架开发的企业级数据处理系
   - 报表生成
   - 趋势分析
 
+## 系统配置
+
+### 文件管理配置
+- **上传目录**: `./uploads`
+- **文件清理配置**:
+  - 文件最大保存时间：24小时
+  - 清理检查间隔：1小时
+  - 清理日志：系统日志中记录所有清理操作
+
+### 运行环境要求
+- **操作系统**：Windows/Linux/MacOS
+- **Go 版本**：1.17+
+- **MySQL 版本**：8.0+
+- **Redis 版本**：6.2+（可选）
+
 ## 项目结构
 
 ```
@@ -73,11 +92,12 @@ ALMDCPS/
 ├── config/       # 配置文件
 ├── models/       # 数据模型
 ├── utils/        # 工具函数
+│   └── cleanup.go # 文件清理工具
 ├── web/          # 前端资源
 │   ├── css/      # 样式文件
 │   ├── js/       # JavaScript 文件
 │   └── images/   # 图片资源
-├── chengshi/     # 工具集
+├── gongju/       # 工具集
 └── main.go       # 主程序入口
 ```
 
@@ -305,6 +325,16 @@ mysql -u root -p
 CREATE DATABASE almdps CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 GRANT ALL PRIVILEGES ON almdps.* TO 'almdps_user'@'localhost' IDENTIFIED BY 'your_password';
 FLUSH PRIVILEGES;
+
+#创建数据库
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 ```
 
 ### 3. Redis 配置（可选）

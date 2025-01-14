@@ -99,6 +99,7 @@
                         </div>
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-primary" onclick="calculateF1()">计算F1分数</button>
+                            <button type="button" class="btn btn-success" onclick="calculateACC()">计算ACC分数</button>
                         </div>
                     </form>
 
@@ -118,7 +119,7 @@
     <footer class="container py-5">
         <div class="row">
             <div class="col-12 col-md">
-                <small class="d-block mb-3 text-body-secondary">&copy; 2024 江苏端木软件技术有限公司</small>
+                <small class="d-block mb-3 text-body-secondary">&copy; 2025 江苏端木软件技术有限公司</small>
             </div>
             <div class="col-6 col-md">
                 <h5>功能</h5>
@@ -205,14 +206,8 @@
                 const result = await response.json();
                 
                 if (result.status === 'success' && result.resultFile) {
-                    // 创建一个隐藏的下载链接并触发点击
-                    const downloadLink = document.createElement('a');
-                    downloadLink.href = result.resultFile;
-                    downloadLink.download = '计算结果.xlsx';
-                    document.body.appendChild(downloadLink);
-                    downloadLink.click();
-                    document.body.removeChild(downloadLink);
-                    
+                    // 直接使用服务器返回的文件路径
+                    window.location.href = result.resultFile;
                     progressAlert.classList.add('d-none');
                 } else {
                     throw new Error(result.message || '处理失败');
@@ -223,6 +218,56 @@
             } finally {
                 progressAlert.classList.add('d-none');
             }
+        }
+
+        async function calculateACC() {
+            const fileInput = document.getElementById('excelFile');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                showError('请先选择Excel文件');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 显示进度提示
+            document.getElementById('progressAlert').classList.remove('d-none');
+            document.getElementById('errorAlert').classList.add('d-none');
+
+            try {
+                const response = await fetch('/api/calculate-acc', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('计算ACC分数失败');
+                }
+
+                const result = await response.json();
+                
+                // 隐藏进度提示
+                document.getElementById('progressAlert').classList.add('d-none');
+
+                // 显示结果
+                if (result.status === 'success') {
+                    window.location.href = result.resultFile;
+                } else {
+                    showError(result.message || '计算ACC分数时发生错误');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('计算ACC分数时发生错误：' + error.message);
+            } finally {
+                document.getElementById('progressAlert').classList.add('d-none');
+            }
+        }
+
+        function showError(message) {
+            const errorAlert = document.getElementById('errorAlert');
+            errorAlert.textContent = message;
+            errorAlert.classList.remove('d-none');
         }
 
         document.addEventListener('DOMContentLoaded', checkLoginStatus);

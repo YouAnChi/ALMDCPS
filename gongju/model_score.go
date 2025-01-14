@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-ego/gse"
 	"github.com/xuri/excelize/v2"
+	"io"
 )
 
 // ModelParams 模型参数结构
@@ -94,22 +95,25 @@ var (
 		cilinMap: make(map[string]CiLinCode),
 		codemap:  make(map[string][]string),
 	}
-	segmenter    gse.Segmenter
+	segmenter gse.Segmenter
+	jiebaLock    sync.Mutex
 	initialized  bool
 	initLock     sync.Once
 )
 
 // 初始化函数
 func initialize() error {
-	var err error
-
-	// 加载分词器
-	segmenter.LoadDict()
-
-	// 加载同义词词林
-	err = globalSynonymDict.LoadCiLinDict("gongju/cilin.txt")
+	// 初始化分词器
+	err := segmenter.LoadDict()
 	if err != nil {
-		return fmt.Errorf("加载词林失败: %v", err)
+		log.Printf("警告：初始化分词器失败: %v，将使用默认分词", err)
+	}
+
+	// 加载同义词词典
+	dictPath := "gongju/cilin.txt"
+	err = globalSynonymDict.LoadCiLinDict(dictPath)
+	if err != nil {
+		log.Printf("警告：加载同义词词典失败: %v，将不使用同义词功能", err)
 	}
 
 	initialized = true
@@ -300,6 +304,155 @@ func ProcessExcelFile(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// CalculateACCScore 计算ACC分数
+func CalculateACCScore(w http.ResponseWriter, r *http.Request) {
+	// 设置响应头
+	w.Header().Set("Content-Type", "application/json")
+
+	// 解析文件
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "获取文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer file.Close()
+
+	// 检查文件扩展名
+	if !strings.HasSuffix(strings.ToLower(header.Filename), ".xlsx") {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "不支持的文件类型，请上传.xlsx文件",
+		})
+		return
+	}
+
+	// 创建临时文件
+	tempDir := "./uploads"
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "创建临时目录失败: " + err.Error(),
+		})
+		return
+	}
+
+	tempFile := filepath.Join(tempDir, fmt.Sprintf("acc_result_%d.xlsx", time.Now().Unix()))
+	dst, err := os.Create(tempFile)
+	if err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "创建临时文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer dst.Close()
+
+	// 保存上传的文件
+	if _, err := io.Copy(dst, file); err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "保存文件失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 打开Excel文件
+	f, err := excelize.OpenFile(tempFile)
+	if err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "打开Excel文件失败: " + err.Error(),
+		})
+		return
+	}
+	defer f.Close()
+
+	// 获取第一个工作表名称
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "Excel文件中没有工作表",
+		})
+		return
+	}
+	sheet := sheets[0]
+
+	// 获取所有行
+	rows, err := f.GetRows(sheet)
+	if err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "读取工作表失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 处理每一行数据
+	for i, row := range rows {
+		if len(row) < 2 {
+			continue // 跳过不完整的行
+		}
+
+		// 对两列文本进行分词
+		words1 := splitWords(row[0])
+		words2 := splitWords(row[1])
+
+		// 计算ACC值
+		acc := calculateACC(words1, words2)
+
+		// 将结果写入C列
+		cell := fmt.Sprintf("C%d", i+1)
+		if err := f.SetCellValue(sheet, cell, acc); err != nil {
+			log.Printf("写入结果失败: %v\n", err)
+			continue
+		}
+	}
+
+	// 保存结果文件
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	resultFile := filepath.Join(tempDir, fmt.Sprintf("ACC结果_%s.xlsx", timestamp))
+	if err := f.SaveAs(resultFile); err != nil {
+		json.NewEncoder(w).Encode(ProcessResponse{
+			Status:  "error",
+			Message: "保存结果文件失败: " + err.Error(),
+		})
+		return
+	}
+
+	// 返回成功响应
+	json.NewEncoder(w).Encode(ProcessResponse{
+		Status:     "success",
+		Message:    "ACC分数计算完成",
+		ResultFile: "/uploads/" + filepath.Base(resultFile),
+	})
+}
+
+// splitWords 将文本分词并返回词列表
+func splitWords(text string) []string {
+	if text == "" {
+		return []string{}
+	}
+	// 使用互斥锁保护分词操作
+	return segmenter.CutAll(text)
+}
+
+// calculateACC 计算两个词列表的ACC值
+func calculateACC(words1, words2 []string) float64 {
+	if len(words1) == 0 || len(words2) == 0 {
+		return 0
+	}
+
+	// 完全匹配才返回1，否则返回0
+	if words1[0] == words2[0] {
+		return 1
+	}
+	return 0
+}
+
 // ParseCiLinCode 解析词林编码
 func ParseCiLinCode(code string) CiLinCode {
 	return CiLinCode{
@@ -440,9 +593,10 @@ func calculateMatches(actual, predicted []WordMatch, actualLen, predictedLen int
 					tolerance,
 				)
 
-				// 根据词语类型调整分数
-				if actualType == predictedType {
-					matchScore *= 1.1 // 增加同类型词的匹配分数
+				// 根据词语类型调整分数，但确保不超过1.0
+				if actualType == predictedType && matchScore < 1.0 {
+					// 只增加剩余空间的10%
+					matchScore = matchScore + (1.0 - matchScore) * 0.1
 				}
 
 				// 更新最佳匹配
@@ -536,6 +690,9 @@ func calculateF1Score(precision, recall float64) float64 {
 	if precision+recall == 0 {
 		return 0
 	}
+	// 确保precision和recall不超过1.0
+	precision = math.Min(1.0, precision)
+	recall = math.Min(1.0, recall)
 	return 2 * (precision * recall) / (precision + recall)
 }
 

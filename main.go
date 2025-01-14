@@ -29,6 +29,14 @@ func main() {
 	// 在 main 函数结束时，确保数据库连接被关闭。defer 关键字用于延迟执行 config.DB.Close() 这个函数，直到包含它的函数（在这里是 main 函数）返回。这是一个常见的做法，用于确保资源（如数据库连接）在不再需要时被正确释放，避免资源泄漏。
 	defer config.DB.Close()
 
+	// 启动文件清理任务
+	// 设置文件最大保存时间为24小时，清理间隔为1小时
+	utils.StartCleanupScheduler(
+		"./uploads",           // 上传目录
+		24*time.Hour,         // 文件最大保存时间
+		1*time.Hour,          // 清理检查间隔
+	)
+
 	// 创建测试用户
 	if err := models.CreateTestUser(); err != nil {
 		log.Printf("创建测试用户失败: %v", err)
@@ -193,6 +201,40 @@ func main() {
 	// 添加Excel文件处理API
 	r.POST("/api/process-excel", func(c *gin.Context) {
 		gongju.ProcessExcelFile(c.Writer, c.Request)
+	})
+
+	// 计算ACC分数的路由
+	r.POST("/api/calculate-acc", auth, func(c *gin.Context) {
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": fmt.Sprintf("获取文件失败: %v", err),
+			})
+			return
+		}
+
+		// 检查文件类型
+		if filepath.Ext(file.Filename) != ".xlsx" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "不支持的文件类型，请上传.xlsx文件",
+			})
+			return
+		}
+
+		// 保存上传的文件
+		filePath := fmt.Sprintf("./uploads/%s", file.Filename)
+		if err := c.SaveUploadedFile(file, filePath); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"status":  "error",
+				"message": fmt.Sprintf("保存文件失败: %v", err),
+			})
+			return
+		}
+
+		// 调用gongju包中的CalculateACCScore函数处理文件
+		gongju.CalculateACCScore(c.Writer, c.Request)
 	})
 
 	// 设置数据分析页面路由

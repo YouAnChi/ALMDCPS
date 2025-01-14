@@ -41,6 +41,7 @@ require (
 	github.com/vcaesar/cedar v0.20.2 // indirect
 	github.com/xuri/efp v0.0.0-20240408161823-9ad904a10d6d // indirect
 	github.com/xuri/nfp v0.0.0-20240318013403-ab9948c2c4a7 // indirect
+	github.com/yanyiwu/gojieba v1.4.5
 	golang.org/x/arch v0.8.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
