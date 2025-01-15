@@ -64,10 +64,238 @@ ALMDCPS 是一个基于 Go 语言和 Gin 框架开发的企业级数据处理系
   - 批量重命名
   - 自定义规则
   - 操作日志
-- **数据分析服务**（开发中）
+- **相似度分析服务**
+  - **ASS (AI Semantic Similarity) 计算**
+    - 基于深度学习的语义相似度计算
+    - 使用预训练模型：yangjhchs/acge_text_embedding
+    - 支持批量Excel文件处理
+    - 计算原理：
+      1. 文本向量化：使用BERT模型将文本转换为高维向量
+      2. 余弦相似度：计算两个文本向量之间的余弦相似度
+      3. 结果范围：0-1之间，1表示完全相似，0表示完全不相似
+    - 使用场景：
+      - 答案相似度评估
+      - 文本语义匹配
+      - 智能问答系统
+  - **ACC (Accurate Character Comparison) 计算**
+    - 精确字符匹配
+    - 支持批量处理
+    - 二值化结果：1（完全相同）或 0（存在差异）
+- **数据可视化**（开发中）
   - 数据可视化
   - 报表生成
   - 趋势分析
+
+### 4. Python 微服务
+- **语义相似度服务**
+  - 端口：5000
+  - 依赖：
+    - Flask：Web服务框架
+    - sentence-transformers：文本向量化
+    - numpy：数值计算
+  - API接口：
+    - POST /calculate-ass：计算语义相似度
+    - 输入：Excel文件（.xlsx格式）
+      - A列：标准答案文本
+      - B列：预测文本
+    - 输出：
+      - 状态：success/error
+      - 消息：处理结果说明
+      - 结果文件：包含原文本和相似度分数的Excel文件
+        - A列：标准答案文本
+        - B列：预测文本
+        - C列：ASS分数（0-1之间的浮点数）
+  - 计算过程：
+    1. 文本预处理：
+       - 去除首尾空白字符
+       - 转换为字符串格式
+    2. 向量化：
+       - 使用预训练的BERT模型生成文本嵌入向量
+       - 向量维度：768维
+    3. 相似度计算：
+       - 使用余弦相似度公式：cos(θ) = (A·B)/(||A||·||B||)
+       - A和B为两个文本的向量表示
+       - 结果归一化到0-1范围
+  - 使用示例：
+    ```python
+    import requests
+    
+    url = 'http://localhost:5000/calculate-ass'
+    files = {'file': open('input.xlsx', 'rb')}
+    response = requests.post(url, files=files)
+    
+    if response.status_code == 200:
+        result = response.json()
+        print(f"结果文件：{result['resultFile']}")
+    ```
+
+## 微服务架构实现
+
+### 1. 架构概述
+
+本系统采用微服务架构，将核心功能拆分为独立的服务：
+
+- **Go 主服务**：负责用户认证、文件管理和 ACC 计算
+- **Python AI 微服务**：专注于 ASS（AI语义相似度）计算
+- **共享文件系统**：用于服务间的文件交换
+
+### 2. 服务通信流程
+
+```mermaid
+sequenceDiagram
+    participant Client as 客户端
+    participant Go as Go主服务
+    participant Python as Python微服务
+    participant FileSystem as 文件系统
+
+    Client->>Go: 上传Excel文件
+    Go->>FileSystem: 保存文件
+    Go->>Python: 发送计算请求
+    Python->>FileSystem: 读取文件
+    Python->>Python: 执行ASS计算
+    Python->>FileSystem: 保存结果
+    Python-->>Go: 返回结果路径
+    Go-->>Client: 返回处理结果
+```
+
+### 3. 服务实现细节
+
+#### 3.1 Go 主服务
+- **路由处理**：
+  ```go
+  router.POST("/api/calculate-ass", handlers.CalculateASS)
+  router.POST("/api/calculate-acc", handlers.CalculateACC)
+  ```
+- **文件处理**：
+  - 支持 Excel 文件上传
+  - 文件格式验证
+  - 临时文件管理
+
+#### 3.2 Python 微服务
+- **API 端点**：
+  ```python
+  @app.route('/calculate-ass', methods=['POST'])
+  def calculate_ass():
+      # 处理文件上传
+      # 执行向量计算
+      # 返回结果
+  ```
+- **AI 模型集成**：
+  - 使用 sentence-transformers
+  - 模型：yangjhchs/acge_text_embedding
+  - 向量维度：768
+
+### 4. 服务间通信
+
+#### 4.1 请求格式
+- **ASS 计算请求**：
+  ```json
+  POST http://localhost:5000/calculate-ass
+  Content-Type: multipart/form-data
+  
+  {
+    "file": "(binary)"
+  }
+  ```
+
+#### 4.2 响应格式
+- **成功响应**：
+  ```json
+  {
+    "status": "success",
+    "message": "计算完成",
+    "resultFile": "/uploads/result_xxx.xlsx"
+  }
+  ```
+- **错误响应**：
+  ```json
+  {
+    "status": "error",
+    "message": "处理失败",
+    "error": "详细错误信息"
+  }
+  ```
+
+### 5. 错误处理机制
+
+#### 5.1 服务级别错误
+- 服务不可用
+- 请求超时
+- 资源不足
+
+#### 5.2 业务级别错误
+- 文件格式错误
+- 计算失败
+- 参数无效
+
+### 6. 监控和日志
+
+#### 6.1 服务监控
+- 服务健康检查
+- 性能指标收集
+- 资源使用监控
+
+#### 6.2 日志记录
+- 请求日志
+- 错误日志
+- 性能日志
+
+### 7. 部署配置
+
+#### 7.1 环境变量
+```bash
+# Go 服务
+GO_PORT=8081
+UPLOAD_DIR=./uploads
+
+# Python 服务
+PYTHON_PORT=5000
+MODEL_PATH=./models
+```
+
+#### 7.2 依赖管理
+- **Go 依赖**：
+  ```go
+  // go.mod
+  require (
+      github.com/gin-gonic/gin v1.7.4
+      github.com/360EntSecGroup-Skylar/excelize/v2 v2.4.0
+  )
+  ```
+- **Python 依赖**：
+  ```text
+  # requirements.txt
+  flask==2.0.1
+  sentence-transformers==2.2.2
+  numpy==1.21.2
+  pandas==1.3.3
+  ```
+
+### 8. 优势和挑战
+
+#### 8.1 优势
+- 服务解耦
+- 技术栈灵活
+- 独立扩展
+- 故障隔离
+
+#### 8.2 挑战
+- 服务协调
+- 数据一致性
+- 部署复杂性
+- 监控需求
+
+### 9. 未来改进
+
+#### 9.1 短期计划
+- 服务注册与发现
+- 负载均衡
+- 熔断机制
+
+#### 9.2 长期计划
+- 容器化部署
+- 服务网格
+- 自动扩缩容
 
 ## 系统配置
 
@@ -524,8 +752,123 @@ cp .env.example .env
 如遇到问题，请联系：
 - 邮箱：youanchi@foxmail.com
 
-
 ## 许可说明
 
 版权所有 2025 youanchi
 保留所有权利
+
+# ALMDCPS - 智能大模型分值计算系统
+
+## 项目简介
+ALMDCPS（AI Large Model Data Processing System）是一个基于人工智能的文本相似度计算系统。该系统能够对输入的文本对进行智能分析，计算它们之间的相似度分数，并提供直观的结果展示。
+
+## 功能特点
+1. **文本相似度计算**
+   - F1分数计算
+   - ACC分数计算
+   - ASS分数计算（基于深度学习模型）
+
+2. **批量处理能力**
+   - 支持Excel文件批量上传
+   - 自动处理多行文本数据
+   - 生成带有计算结果的新Excel文件
+
+3. **用户友好界面**
+   - 简洁的Web操作界面
+   - 实时处理进度显示
+   - 错误提示和处理
+
+## 系统要求
+- Python 3.9+
+- 依赖包：
+  ```
+  sentence-transformers==2.2.2
+  openpyxl==3.1.2
+  numpy==1.24.3
+  torch>=2.0.0
+  transformers>=4.30.0
+  tqdm>=4.65.0
+  scikit-learn>=1.2.2
+  huggingface-hub==0.16.4
+  flask==2.3.3
+  flask-cors==4.0.0
+  ```
+
+## 安装说明
+1. 克隆项目到本地
+2. 创建并激活Python虚拟环境：
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # Linux/Mac
+   # 或
+   venv\Scripts\activate  # Windows
+   ```
+3. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+## 使用说明
+
+### 启动服务
+1. 进入python_service_v1.1目录
+2. 运行服务：
+   ```bash
+   python ASS.py
+   ```
+   服务将在 http://localhost:5001 启动
+
+### Excel文件格式要求
+1. 文件格式：.xlsx
+2. 数据格式：
+   - A列：标准答案文本
+   - B列：预测文本
+   - 第一行为表头
+
+### 使用步骤
+1. 打开Web界面
+2. 选择要处理的Excel文件
+3. 点击相应的计算按钮（F1/ACC/ASS）
+4. 等待处理完成，系统会自动下载结果文件
+
+### 结果文件说明
+- 生成新的Excel文件，包含：
+  - 原始的标准答案（A列）
+  - 原始的预测文本（B列）
+  - 计算的相似度分数（C列）
+
+## 错误处理
+1. 文件格式错误：确保上传.xlsx格式的Excel文件
+2. 数据为空：确保Excel文件中至少包含一行有效数据
+3. 列数不足：确保Excel文件至少包含两列数据
+4. 网络错误：检查网络连接和服务器状态
+
+## 技术架构
+1. **前端**：
+   - HTML5
+   - Bootstrap
+   - JavaScript
+
+2. **后端**：
+   - Flask Web服务
+   - Sentence Transformers模型
+   - Excel处理（openpyxl）
+
+3. **AI模型**：
+   - 使用预训练的文本嵌入模型
+   - 支持中文文本处理
+   - 高效的相似度计算
+
+## 注意事项
+1. 服务启动时会加载AI模型，可能需要一定时间
+2. 处理大文件时可能需要较长时间，请耐心等待
+3. 建议每次处理的Excel文件不超过1000行
+4. 确保系统有足够的内存来运行AI模型
+
+## 更新日志
+### v1.1
+- 添加了ASS分数计算功能
+- 优化了文件处理逻辑
+- 改进了错误处理机制
+- 添加了详细的日志记录
+- 优化了用户界面响应

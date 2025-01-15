@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -11,6 +12,8 @@ import (
 	"fuzhu_2/api"
 	"fuzhu_2/config"
 	"fuzhu_2/gongju"
+
+	//"fuzhu_2/handlers"
 	"fuzhu_2/models"
 	"fuzhu_2/types"
 	"fuzhu_2/utils"
@@ -32,9 +35,9 @@ func main() {
 	// 启动文件清理任务
 	// 设置文件最大保存时间为24小时，清理间隔为1小时
 	utils.StartCleanupScheduler(
-		"./uploads",           // 上传目录
-		24*time.Hour,         // 文件最大保存时间
-		1*time.Hour,          // 清理检查间隔
+		"./uploads",  // 上传目录
+		24*time.Hour, // 文件最大保存时间
+		1*time.Hour,  // 清理检查间隔
 	)
 
 	// 创建测试用户
@@ -71,6 +74,14 @@ func main() {
 	r.Static("/web", "./web")
 	// 添加 chengshi 目录的静态文件服务
 	r.Static("/chengshi", "./chengshi")
+
+	// 确保上传目录存在
+	if err := os.MkdirAll("./uploads", 0755); err != nil {
+		log.Fatalf("创建上传目录失败: %v", err)
+	}
+
+	// 添加静态文件服务以提供对上传文件的访问
+	r.Static("/uploads", "./uploads")
 
 	// 设置首页路由
 	r.GET("/", func(c *gin.Context) {
@@ -155,9 +166,6 @@ func main() {
 		processFile(filePath, c)
 	})
 
-	// 提供文件下载服务
-	r.Static("/uploads", "./uploads")
-
 	// 提供进度查询服务
 	r.GET("/progress", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -199,7 +207,7 @@ func main() {
 	})
 
 	// 添加Excel文件处理API
-	r.POST("/api/process-excel", func(c *gin.Context) {
+	r.POST("/api/process-excel", auth, func(c *gin.Context) {
 		gongju.ProcessExcelFile(c.Writer, c.Request)
 	})
 
@@ -235,6 +243,11 @@ func main() {
 
 		// 调用gongju包中的CalculateACCScore函数处理文件
 		gongju.CalculateACCScore(c.Writer, c.Request)
+	})
+
+	// 计算ASS分数的路由
+	r.POST("/api/calculate-ass", auth, func(c *gin.Context) {
+		gongju.CalculateASSScore(c.Writer, c.Request)
 	})
 
 	// 设置数据分析页面路由
@@ -351,8 +364,3 @@ func processFile(filePath string, c *gin.Context) {
 		"file":    outputFileName,
 	})
 }
-
-// 使用goroutine并发处理数据：
-// 最多同时运行16个工作协程
-// 使用channel控制并发数量
-// 使用WaitGroup等待所有处理完成

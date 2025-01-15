@@ -100,6 +100,7 @@
                         <div class="d-grid gap-2">
                             <button type="button" class="btn btn-primary" onclick="calculateF1()">计算F1分数</button>
                             <button type="button" class="btn btn-success" onclick="calculateACC()">计算ACC分数</button>
+                            <button type="button" class="btn btn-info" onclick="calculateASS()">计算ASS分数</button>
                         </div>
                     </form>
 
@@ -145,7 +146,7 @@
     <script>
         async function checkLoginStatus() {
             try {
-                const response = await fetch('/api/check-status');
+                const response = await fetch('http://localhost:5001/api/check-status');
                 const data = await response.json();
                 
                 if (response.ok) {
@@ -163,7 +164,7 @@
 
         async function logout() {
             try {
-                const response = await fetch('/api/logout', {
+                const response = await fetch('http://localhost:5001/api/logout', {
                     method: 'POST'
                 });
                 
@@ -194,7 +195,7 @@
             errorAlert.classList.add('d-none');
 
             try {
-                const response = await fetch('/api/process-excel', {
+                const response = await fetch('http://localhost:5001/api/process-excel', {
                     method: 'POST',
                     body: formData
                 });
@@ -207,7 +208,7 @@
                 
                 if (result.status === 'success' && result.resultFile) {
                     // 直接使用服务器返回的文件路径
-                    window.location.href = result.resultFile;
+                    window.location.href = 'http://localhost:5001' + result.resultFile;
                     progressAlert.classList.add('d-none');
                 } else {
                     throw new Error(result.message || '处理失败');
@@ -236,7 +237,7 @@
             document.getElementById('errorAlert').classList.add('d-none');
 
             try {
-                const response = await fetch('/api/calculate-acc', {
+                const response = await fetch('http://localhost:5001/api/calculate-acc', {
                     method: 'POST',
                     body: formData
                 });
@@ -252,7 +253,7 @@
 
                 // 显示结果
                 if (result.status === 'success') {
-                    window.location.href = result.resultFile;
+                    window.location.href = 'http://localhost:5001' + result.resultFile;
                 } else {
                     showError(result.message || '计算ACC分数时发生错误');
                 }
@@ -261,6 +262,50 @@
                 showError('计算ACC分数时发生错误：' + error.message);
             } finally {
                 document.getElementById('progressAlert').classList.add('d-none');
+            }
+        }
+
+        async function calculateASS() {
+            const fileInput = document.getElementById('excelFile');
+            const progressAlert = document.getElementById('progressAlert');
+            const errorAlert = document.getElementById('errorAlert');
+
+            if (!fileInput.files || fileInput.files.length === 0) {
+                errorAlert.textContent = '请选择一个Excel文件';
+                errorAlert.classList.remove('d-none');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            // 显示进度提示
+            progressAlert.classList.remove('d-none');
+            errorAlert.classList.add('d-none');
+
+            try {
+                const response = await fetch('http://localhost:5001/api/calculate-ass', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error('计算失败');
+                }
+
+                const result = await response.json();
+                if (result.status === 'success') {
+                    // 下载结果文件
+                    window.location.href = 'http://localhost:5001' + result.resultFile;
+                    progressAlert.classList.add('d-none');
+                } else {
+                    throw new Error(result.message || '计算失败');
+                }
+            } catch (error) {
+                console.error('计算ASS分数失败:', error);
+                errorAlert.textContent = error.message || '计算ASS分数失败，请重试';
+                errorAlert.classList.remove('d-none');
+                progressAlert.classList.add('d-none');
             }
         }
 

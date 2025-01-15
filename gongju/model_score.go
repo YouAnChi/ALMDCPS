@@ -16,7 +16,42 @@ import (
 	"github.com/go-ego/gse"
 	"github.com/xuri/excelize/v2"
 	"io"
+	"bytes"
+	"mime/multipart"
 )
+
+// 全局变量
+var (
+	globalSynonymDict = &SynonymDict{
+		cilinMap: make(map[string]CiLinCode),
+		codemap:  make(map[string][]string),
+	}
+	segmenter gse.Segmenter
+	jiebaLock    sync.Mutex
+	initialized  bool
+	initLock     sync.Once
+)
+
+func init() {
+	// 初始化分词器
+	err := segmenter.LoadDict()
+	if err != nil {
+		log.Printf("初始化分词器失败: %v", err)
+	}
+}
+
+// 初始化函数
+func initialize() error {
+	// 加载同义词词典
+	dictPath := "gongju/cilin.txt"
+	err := globalSynonymDict.LoadCiLinDict(dictPath)
+	if err != nil {
+		log.Printf("加载同义词词典失败: %v，将不使用同义词功能", err)
+	}
+
+	initialized = true
+	return nil
+}
 
 // ModelParams 模型参数结构
 type ModelParams struct {
@@ -87,37 +122,6 @@ type ProcessResponse struct {
 	Status     string `json:"status"`
 	Message    string `json:"message"`
 	ResultFile string `json:"resultFile,omitempty"`
-}
-
-// 全局变量
-var (
-	globalSynonymDict = &SynonymDict{
-		cilinMap: make(map[string]CiLinCode),
-		codemap:  make(map[string][]string),
-	}
-	segmenter gse.Segmenter
-	jiebaLock    sync.Mutex
-	initialized  bool
-	initLock     sync.Once
-)
-
-// 初始化函数
-func initialize() error {
-	// 初始化分词器
-	err := segmenter.LoadDict()
-	if err != nil {
-		log.Printf("警告：初始化分词器失败: %v，将使用默认分词", err)
-	}
-
-	// 加载同义词词典
-	dictPath := "gongju/cilin.txt"
-	err = globalSynonymDict.LoadCiLinDict(dictPath)
-	if err != nil {
-		log.Printf("警告：加载同义词词典失败: %v，将不使用同义词功能", err)
-	}
-
-	initialized = true
-	return nil
 }
 
 // CalculateModelScore 计算智能大模型分值
@@ -309,126 +313,163 @@ func CalculateACCScore(w http.ResponseWriter, r *http.Request) {
 	// 设置响应头
 	w.Header().Set("Content-Type", "application/json")
 
-	// 解析文件
-	file, header, err := r.FormFile("file")
+	// 解析上传的文件
+	file, _, err := r.FormFile("file")
 	if err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
+		response := ProcessResponse{
 			Status:  "error",
-			Message: "获取文件失败: " + err.Error(),
-		})
+			Message: fmt.Sprintf("获取文件失败: %v", err),
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 	defer file.Close()
 
-	// 检查文件扩展名
-	if !strings.HasSuffix(strings.ToLower(header.Filename), ".xlsx") {
-		json.NewEncoder(w).Encode(ProcessResponse{
-			Status:  "error",
-			Message: "不支持的文件类型，请上传.xlsx文件",
-		})
-		return
-	}
-
-	// 创建临时文件
-	tempDir := "./uploads"
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
-			Status:  "error",
-			Message: "创建临时目录失败: " + err.Error(),
-		})
-		return
-	}
-
-	tempFile := filepath.Join(tempDir, fmt.Sprintf("acc_result_%d.xlsx", time.Now().Unix()))
-	dst, err := os.Create(tempFile)
+	// 读取Excel文件
+	xlsx, err := excelize.OpenReader(file)
 	if err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
+		response := ProcessResponse{
 			Status:  "error",
-			Message: "创建临时文件失败: " + err.Error(),
-		})
+			Message: fmt.Sprintf("读取Excel文件失败: %v", err),
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	defer dst.Close()
+	defer xlsx.Close()
 
-	// 保存上传的文件
-	if _, err := io.Copy(dst, file); err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
-			Status:  "error",
-			Message: "保存文件失败: " + err.Error(),
-		})
-		return
-	}
-
-	// 打开Excel文件
-	f, err := excelize.OpenFile(tempFile)
+	// 获取第一个工作表
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
+		response := ProcessResponse{
 			Status:  "error",
-			Message: "打开Excel文件失败: " + err.Error(),
-		})
+			Message: fmt.Sprintf("读取工作表失败: %v", err),
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
-	defer f.Close()
 
-	// 获取第一个工作表名称
-	sheets := f.GetSheetList()
-	if len(sheets) == 0 {
-		json.NewEncoder(w).Encode(ProcessResponse{
-			Status:  "error",
-			Message: "Excel文件中没有工作表",
-		})
-		return
-	}
-	sheet := sheets[0]
+	// 创建输出文件
+	outputXlsx := excelize.NewFile()
+	outputSheet := "Sheet1"
 
-	// 获取所有行
-	rows, err := f.GetRows(sheet)
-	if err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
-			Status:  "error",
-			Message: "读取工作表失败: " + err.Error(),
-		})
-		return
-	}
+	// 写入表头
+	outputXlsx.SetCellValue(outputSheet, "A1", "A")
+	outputXlsx.SetCellValue(outputSheet, "B1", "B")
+	outputXlsx.SetCellValue(outputSheet, "C1", "C")
 
 	// 处理每一行数据
-	for i, row := range rows {
+	for i := 1; i < len(rows); i++ {
+		row := rows[i]
 		if len(row) < 2 {
-			continue // 跳过不完整的行
-		}
-
-		// 对两列文本进行分词
-		words1 := splitWords(row[0])
-		words2 := splitWords(row[1])
-
-		// 计算ACC值
-		acc := calculateACC(words1, words2)
-
-		// 将结果写入C列
-		cell := fmt.Sprintf("C%d", i+1)
-		if err := f.SetCellValue(sheet, cell, acc); err != nil {
-			log.Printf("写入结果失败: %v\n", err)
 			continue
 		}
+
+		// 获取A列和B列的文本
+		textA := row[0]
+		textB := row[1]
+
+		// 计算ACC分数
+		score := calculateACC([]string{textA}, []string{textB})
+
+		// 写入结果
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("A%d", i+1), textA)
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("B%d", i+1), textB)
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("C%d", i+1), score)
 	}
 
-	// 保存结果文件
-	timestamp := time.Now().Format("2006-01-02_15-04-05")
-	resultFile := filepath.Join(tempDir, fmt.Sprintf("ACC结果_%s.xlsx", timestamp))
-	if err := f.SaveAs(resultFile); err != nil {
-		json.NewEncoder(w).Encode(ProcessResponse{
+	// 保存输出文件
+	outputFileName := fmt.Sprintf("acc_result_%d.xlsx", time.Now().Unix())
+	outputPath := filepath.Join("uploads", outputFileName)
+	if err := outputXlsx.SaveAs(outputPath); err != nil {
+		response := ProcessResponse{
 			Status:  "error",
-			Message: "保存结果文件失败: " + err.Error(),
-		})
+			Message: fmt.Sprintf("保存结果文件失败: %v", err),
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 
 	// 返回成功响应
-	json.NewEncoder(w).Encode(ProcessResponse{
+	response := ProcessResponse{
 		Status:     "success",
 		Message:    "ACC分数计算完成",
-		ResultFile: "/uploads/" + filepath.Base(resultFile),
-	})
+		ResultFile: "/uploads/" + outputFileName,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+// CalculateASSScore 计算ASS分数
+func CalculateASSScore(w http.ResponseWriter, r *http.Request) {
+	// 检查请求方法
+	if r.Method != http.MethodPost {
+		http.Error(w, "只支持POST请求", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// 解析文件
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "获取文件失败", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	// 检查文件类型
+	if !strings.HasSuffix(header.Filename, ".xlsx") {
+		http.Error(w, "只支持.xlsx格式的文件", http.StatusBadRequest)
+		return
+	}
+
+	// 将文件转发到Python服务
+	pythonServiceURL := "http://localhost:5000/calculate-ass"
+	
+	// 创建新的multipart请求
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile("file", header.Filename)
+	if err != nil {
+		http.Error(w, "创建请求失败", http.StatusInternalServerError)
+		return
+	}
+	
+	// 复制文件内容
+	_, err = io.Copy(part, file)
+	if err != nil {
+		http.Error(w, "复制文件失败", http.StatusInternalServerError)
+		return
+	}
+	writer.Close()
+
+	// 创建请求
+	req, err := http.NewRequest("POST", pythonServiceURL, body)
+	if err != nil {
+		http.Error(w, "创建请求失败", http.StatusInternalServerError)
+		return
+	}
+	
+	// 设置请求头
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	// 发送请求
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		http.Error(w, "Python服务请求失败", http.StatusInternalServerError)
+		return
+	}
+	defer resp.Body.Close()
+
+	// 读取响应
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		http.Error(w, "读取响应失败", http.StatusInternalServerError)
+		return
+	}
+
+	// 设置响应头
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(respBody)
 }
 
 // splitWords 将文本分词并返回词列表
@@ -436,7 +477,20 @@ func splitWords(text string) []string {
 	if text == "" {
 		return []string{}
 	}
+
 	// 使用互斥锁保护分词操作
+	jiebaLock.Lock()
+	defer jiebaLock.Unlock()
+
+	// 确保分词器已初始化
+	if !initialized {
+		initLock.Do(func() {
+			if err := initialize(); err != nil {
+				log.Printf("初始化失败: %v", err)
+			}
+		})
+	}
+
 	return segmenter.CutAll(text)
 }
 
@@ -446,8 +500,12 @@ func calculateACC(words1, words2 []string) float64 {
 		return 0
 	}
 
-	// 完全匹配才返回1，否则返回0
-	if words1[0] == words2[0] {
+	// 直接比较原始文本
+	text1 := words1[0]
+	text2 := words2[0]
+
+	// 完全相同返回1，否则返回0
+	if text1 == text2 {
 		return 1
 	}
 	return 0
