@@ -2,10 +2,13 @@ package gongju
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,9 +18,6 @@ import (
 
 	"github.com/go-ego/gse"
 	"github.com/xuri/excelize/v2"
-	"io"
-	"bytes"
-	"mime/multipart"
 )
 
 // 全局变量
@@ -26,10 +26,15 @@ var (
 		cilinMap: make(map[string]CiLinCode),
 		codemap:  make(map[string][]string),
 	}
-	segmenter gse.Segmenter
-	jiebaLock    sync.Mutex
-	initialized  bool
-	initLock     sync.Once
+	segmenter   gse.Segmenter
+	jiebaLock   sync.Mutex
+	initialized bool
+	initLock    sync.Once
+
+	// 进度追踪变量
+	processedRows int
+	totalRows     int
+	progressMutex sync.Mutex
 )
 
 func init() {
@@ -56,7 +61,7 @@ func initialize() error {
 // ModelParams 模型参数结构
 type ModelParams struct {
 	ResponseTime  float64 `json:"responseTime"`  // 响应时间（毫秒）
-	Accuracy     float64 `json:"accuracy"`      // 准确率（百分比）
+	Accuracy      float64 `json:"accuracy"`      // 准确率（百分比）
 	ResourceUsage float64 `json:"resourceUsage"` // 资源消耗（MB）
 }
 
@@ -354,9 +359,11 @@ func CalculateACCScore(w http.ResponseWriter, r *http.Request) {
 	outputSheet := "Sheet1"
 
 	// 写入表头
-	outputXlsx.SetCellValue(outputSheet, "A1", "A")
-	outputXlsx.SetCellValue(outputSheet, "B1", "B")
-	outputXlsx.SetCellValue(outputSheet, "C1", "C")
+	headers := []string{"标准答案", "预测文本", "ACC分数"}
+	for i, header := range headers {
+		cell := string(rune('A'+i)) + "1"
+		outputXlsx.SetCellValue(outputSheet, cell, header)
+	}
 
 	// 处理每一行数据
 	for i := 1; i < len(rows); i++ {
@@ -373,13 +380,18 @@ func CalculateACCScore(w http.ResponseWriter, r *http.Request) {
 		score := calculateACC([]string{textA}, []string{textB})
 
 		// 写入结果
-		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("A%d", i+1), textA)
-		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("B%d", i+1), textB)
-		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("C%d", i+1), score)
+		rowNum := i + 1
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("A%d", rowNum), textA)
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("B%d", rowNum), textB)
+		outputXlsx.SetCellValue(outputSheet, fmt.Sprintf("C%d", rowNum), score)
 	}
 
+	// 调整列宽
+	outputXlsx.SetColWidth(outputSheet, "A", "C", 30)
+
 	// 保存输出文件
-	outputFileName := fmt.Sprintf("acc_result_%d.xlsx", time.Now().Unix())
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	outputFileName := fmt.Sprintf("ACC分数_%s.xlsx", timestamp)
 	outputPath := filepath.Join("uploads", outputFileName)
 	if err := outputXlsx.SaveAs(outputPath); err != nil {
 		response := ProcessResponse{
@@ -422,8 +434,8 @@ func CalculateASSScore(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 将文件转发到Python服务
-	pythonServiceURL := "http://localhost:5000/calculate-ass"
-	
+	pythonServiceURL := "http://localhost:5001/calculate-ass"
+
 	// 创建新的multipart请求
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
@@ -432,7 +444,7 @@ func CalculateASSScore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "创建请求失败", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 复制文件内容
 	_, err = io.Copy(part, file)
 	if err != nil {
@@ -447,7 +459,7 @@ func CalculateASSScore(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "创建请求失败", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// 设置请求头
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 
@@ -467,9 +479,32 @@ func CalculateASSScore(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 设置响应头
+	// 解析Python服务返回的JSON
+	var pythonResp struct {
+		Status     string `json:"status"`
+		Message    string `json:"message"`
+		ResultFile string `json:"resultFile"`
+		Error      string `json:"error,omitempty"`
+	}
+
+	if err := json.Unmarshal(respBody, &pythonResp); err != nil {
+		http.Error(w, "解析响应失败: "+string(respBody), http.StatusInternalServerError)
+		return
+	}
+
+	// 如果Python服务返回错误
+	if pythonResp.Error != "" {
+		http.Error(w, pythonResp.Error, http.StatusInternalServerError)
+		return
+	}
+
+	// 返回成功响应
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(respBody)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":     pythonResp.Status,
+		"message":    pythonResp.Message,
+		"resultFile": pythonResp.ResultFile,
+	})
 }
 
 // splitWords 将文本分词并返回词列表
@@ -654,7 +689,7 @@ func calculateMatches(actual, predicted []WordMatch, actualLen, predictedLen int
 				// 根据词语类型调整分数，但确保不超过1.0
 				if actualType == predictedType && matchScore < 1.0 {
 					// 只增加剩余空间的10%
-					matchScore = matchScore + (1.0 - matchScore) * 0.1
+					matchScore = matchScore + (1.0-matchScore)*0.1
 				}
 
 				// 更新最佳匹配
@@ -822,4 +857,19 @@ func calculateSemanticF1(actual, predicted string, seg gse.Segmenter) TextSimila
 		SemanticF1:      semanticF1,
 		PositionAwareF1: positionF1,
 	}
+}
+
+// 更新进度
+func updateProgress(processed, total int) {
+	progressMutex.Lock()
+	defer progressMutex.Unlock()
+	processedRows = processed
+	totalRows = total
+}
+
+// 获取进度
+func GetProgress() (int, int) {
+	progressMutex.Lock()
+	defer progressMutex.Unlock()
+	return processedRows, totalRows
 }

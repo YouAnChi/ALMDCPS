@@ -1,7 +1,9 @@
 package main
 
 import (
+	//"bytes"
 	"fmt"
+	//"io"
 	"log"
 	"net/http"
 	"os"
@@ -21,6 +23,9 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	//"github.com/gin-gonic/gin/binding"
+	//"github.com/pkg/errors"
+	//"mime/multipart"
 )
 
 var processedRows int
@@ -175,6 +180,16 @@ func main() {
 		})
 	})
 
+	// 提供进度查询API
+	r.GET("/api/progress", func(c *gin.Context) {
+		processed, total := gongju.GetProgress()
+		c.JSON(http.StatusOK, gin.H{
+			"processedRows": processed,
+			"totalRows":     total,
+			"completed":     processed == total && total > 0,
+		})
+	})
+
 	// 添加检查登录状态的 API
 	r.GET("/api/check-status", func(c *gin.Context) {
 		session := sessions.Default(c)
@@ -197,7 +212,7 @@ func main() {
 	})
 
 	// 设置模型分值计算页面路由
-	r.GET("/model-score", func(c *gin.Context) {
+	r.GET("/model-score", auth, func(c *gin.Context) {
 		c.File("./web/model_score.html")
 	})
 
@@ -206,46 +221,17 @@ func main() {
 		gongju.CalculateModelScore(c.Writer, c.Request)
 	})
 
-	// 添加Excel文件处理API
+	// 处理Excel文件并计算F1分数
 	r.POST("/api/process-excel", auth, func(c *gin.Context) {
 		gongju.ProcessExcelFile(c.Writer, c.Request)
 	})
 
-	// 计算ACC分数的路由
+	// 处理Excel文件并计算ACC分数
 	r.POST("/api/calculate-acc", auth, func(c *gin.Context) {
-		file, err := c.FormFile("file")
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  "error",
-				"message": fmt.Sprintf("获取文件失败: %v", err),
-			})
-			return
-		}
-
-		// 检查文件类型
-		if filepath.Ext(file.Filename) != ".xlsx" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"status":  "error",
-				"message": "不支持的文件类型，请上传.xlsx文件",
-			})
-			return
-		}
-
-		// 保存上传的文件
-		filePath := fmt.Sprintf("./uploads/%s", file.Filename)
-		if err := c.SaveUploadedFile(file, filePath); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{
-				"status":  "error",
-				"message": fmt.Sprintf("保存文件失败: %v", err),
-			})
-			return
-		}
-
-		// 调用gongju包中的CalculateACCScore函数处理文件
 		gongju.CalculateACCScore(c.Writer, c.Request)
 	})
 
-	// 计算ASS分数的路由
+	// 处理Excel文件并计算ASS分数
 	r.POST("/api/calculate-ass", auth, func(c *gin.Context) {
 		gongju.CalculateASSScore(c.Writer, c.Request)
 	})
